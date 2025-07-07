@@ -1,0 +1,378 @@
+{% extends 'globalApp/landing.html' %}
+{% load humanize %}
+{% load static %}
+{% block main_content %}
+    <h1>Welcome to the Product Menu</h1>
+    <p>This is the product section. You can manage your products here.</p>
+    <form method="get" class="search-form" style="flex-wrap:wrap;">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search product name...">
+        <button type="submit">Search</button>
+        <button type="button" id="add-product-btn" style="margin-left:auto;background:#198754;">+ Add Product</button>
+    </form>
+    {% if error_message %}
+    <div style="background:#ffdddd;color:#a94442;padding:12px 18px;border:1px solid #ebccd1;border-radius:4px;margin-bottom:16px;">
+        {{ error_message }}
+    </div>
+    {% endif %}
+    <!-- Modal for Add Product -->
+    <div id="addProductModal" class="modal">
+        <div class="modal-content">
+            <span class="close-x" onclick="closeModal()">&times;</span>
+            <h2>Add New Product</h2>
+            <form id="addProductForm" method="post" action="" autocomplete="off" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div style="margin-bottom:12px;">
+                    <label>Product Name:</label><br>
+                    <input type="text" name="product" required style="width:100%;padding:6px 8px;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Stock:</label><br>
+                    <input type="text" name="stock" required style="width:100%;padding:6px 8px;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Price (Rp):</label><br>
+                    <input type="text" name="price" required style="width:100%;padding:6px 8px;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Product Code:</label><br>
+                    <input type="text" name="product_code" required style="width:100%;padding:6px 8px;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Product Image:</label><br>
+                    <input type="file" name="image" id="add_image" accept="image/*" style="width:100%;padding:6px 8px;">
+                    <img id="add_image_preview" src="#" alt="Image Preview" style="display:none;margin-top:8px;max-width:100px;max-height:100px;" />
+                </div>
+                <button type="submit" style="background:#198754;color:#fff;padding:8px 24px;border:none;border-radius:4px;">Add</button>
+                <button type="button" onclick="closeModal()" style="margin-left:8px;padding:8px 24px;">Cancel</button>
+            </form>
+        </div>
+    </div>
+    <!-- Edit Product Modal -->
+    <div id="editProductModal" class="modal{% if edit_error_message %} show-modal{% endif %}">
+        <div class="modal-content">
+            <span class="close-x" onclick="closeEditModal()">&times;</span>
+            <h2>Edit Product</h2>
+            {% if edit_error_message %}
+            <div style="background:#ffdddd;color:#a94442;padding:12px 18px;border:1px solid #ebccd1;border-radius:4px;margin-bottom:16px;">
+                {{ edit_error_message }}
+            </div>
+            {% endif %}
+            <form id="editProductForm" method="post" action="" autocomplete="off" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="edit_id" id="edit_id" value="{% if edit_error_message %}{{ request.POST.edit_id }}{% endif %}">
+                <div style="display:flex;gap:24px;">
+                    <!-- Left Section: Product Details -->
+                    <div style="flex:1;">
+                        <div style="margin-bottom:12px;">
+                            <label>Product Name:</label><br>
+                            <input type="text" name="edit_product" id="edit_product" required style="width:100%;padding:6px 8px;" value="{% if edit_error_message %}{{ request.POST.edit_product }}{% endif %}">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label>Stock:</label><br>
+                            <input type="text" name="edit_stock" id="edit_stock" required style="width:100%;padding:6px 8px;" value="{% if edit_error_message %}{{ request.POST.edit_stock }}{% endif %}">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label>Price (Rp):</label><br>
+                            <input type="text" name="edit_price" id="edit_price" required style="width:100%;padding:6px 8px;" value="{% if edit_error_message %}{{ request.POST.edit_price }}{% endif %}">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label>Product Code:</label><br>
+                            <input type="text" name="edit_product_code" id="edit_product_code" required style="width:100%;padding:6px 8px;" value="{% if edit_error_message %}{{ request.POST.edit_product_code }}{% endif %}">
+                        </div>
+                    </div>
+                    <!-- Right Section: Image -->
+                    <div style="flex:1;">
+                        <div style="margin-bottom:12px;">
+                            <label>Product Image:</label><br>
+                            <input type="file" name="edit_image" id="edit_image" accept="image/*" style="width:100%;padding:6px 8px;">
+                            <img id="edit_image_preview" src="{% if edit_image_base64 %}{{ edit_image_base64 }}{% elif edit_image_url %}{% static edit_image_url %}{% else %}#{% endif %}" alt="Image Preview" style="{% if not edit_image_base64 and not edit_image_url %}display:none;{% endif %}margin-top:8px;max-width:200px;max-height:200px;border:1px solid #ddd;border-radius:4px;" />
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+                    <div>
+                        <button type="submit" style="background:#198754;color:#fff;padding:8px 24px;border:none;border-radius:4px;">Save</button>
+                        <button type="button" onclick="closeEditModal()" style="margin-left:8px;padding:8px 24px;">Cancel</button>
+                    </div>
+                    <button type="button" onclick="deleteProduct()" style="background:#dc3545;color:#fff;padding:8px 24px;border:none;border-radius:4px;">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <table border="1" cellpadding="8" cellspacing="0" style="width:100%;margin-top:24px;">
+        <thead>
+            <tr>
+                <th style="text-align:center;width:48px;"><a href="?q={{ query }}&order_by=num&order_dir={{ next_dir.num }}">ID{% if order_by == 'num' %} {% if order_dir == 'asc' %}▲{% else %}▼{% endif %}{% endif %}</a></th>
+                <th><a href="?q={{ query }}&order_by=product&order_dir={{ next_dir.product }}">Product{% if order_by == 'product' %} {% if order_dir == 'asc' %}▲{% else %}▼{% endif %}{% endif %}</a></th>
+                <th style="text-align:center;"><a href="?q={{ query }}&order_by=stock&order_dir={{ next_dir.stock }}">Stock{% if order_by == 'stock' %} {% if order_dir == 'asc' %}▲{% else %}▼{% endif %}{% endif %}</a></th>
+                <th style="text-align:center;"><a href="?q={{ query }}&order_by=price&order_dir={{ next_dir.price }}">Price (Rp){% if order_by == 'price' %} {% if order_dir == 'asc' %}▲{% else %}▼{% endif %}{% endif %}</a></th>
+                <th style="text-align:center;"><a href="?q={{ query }}&order_by=last_update_price&order_dir={{ next_dir.last_update_price }}">Last Update Price{% if order_by == 'last_update_price' %} {% if order_dir == 'asc' %}▲{% else %}▼{% endif %}{% endif %}</a></th>
+                <th style="text-align:center;"><a href="?q={{ query }}&order_by=product_code&order_dir={{ next_dir.product_code }}">Product Code{% if order_by == 'product_code' %} {% if order_dir == 'asc' %}▲{% else %}▼{% endif %}{% endif %}</a></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td style="text-align:center;">
+                    <a href="#" class="edit-product-link"
+                        data-id="{{ product.id }}"
+                        data-product="{{ product.product }}"
+                        data-stock="{{ product.stock }}"
+                        data-price="{{ product.price }}"
+                        data-product_code="{{ product.product_code }}"
+                        data-last_update_price="{{ product.last_update_price }}"
+                        data-image="{{ product.image.url|default:'' }}"
+                    >{{ product.id }}</a>
+                </td>
+                <td style="position:relative;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                        <span>{{ product.product }}</span>
+                        <span style="display:flex;align-items:center;">
+                            <span style="border-left:1px solid #ccc;height:24px;margin:0 12px 0 16px;"></span>
+                            <span class="product-image-icon" data-id="{{ product.id }}" style="cursor:pointer;">
+                                <i class="fa fa-image"></i>
+                            </span>
+                        </span>
+                    </div>
+                </td>
+                <td style="text-align:center;">{{ product.stock|intcomma }}</td>
+                <td style="text-align:center;">{{ product.price|floatformat:2|intcomma }}</td>
+                <td style="text-align:center;">{{ product.last_update_price }}</td>
+                <td style="text-align:center;">{{ product.product_code }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;">No products found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <!-- Product image popup container (positioned at top of table) -->
+    <div id="product-image-popup-container" style="display:none;position:absolute;z-index:1000;background:#fff;padding:8px;border:1px solid #ccc;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+        <img src="#" alt="Product Image" style="max-width:320px;max-height:320px;display:block;" />
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="pagination" style="margin-top:20px; text-align:center;">
+        {% if page_obj.has_previous %}
+            <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}">&laquo; Prev</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?q={{ query }}&page={{ page_obj.next_page_number }}">Next &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    <script>
+        document.getElementById('add-product-btn').onclick = function() {
+            document.getElementById('addProductModal').style.display = 'flex';
+        };
+        function closeModal() {
+            document.getElementById('addProductModal').style.display = 'none';
+        }
+        // Optional: Close modal when clicking outside the form
+        document.getElementById('addProductModal').onclick = function(e) {
+            if (e.target === this) closeModal();
+        };
+
+        // Only allow numbers for stock, and numbers/decimal for price
+        document.querySelectorAll('#addProductForm input[name="stock"]').forEach(function(input) {
+            input.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9,]/g, '');
+            });
+        });
+        document.querySelectorAll('#addProductForm input[name="price"]').forEach(function(input) {
+            input.addEventListener('input', function() {
+                // Allow numbers, commas, and one decimal point
+                let val = this.value.replace(/[^0-9.,]/g, '');
+                // Only allow one decimal point
+                let parts = val.split('.');
+                if (parts.length > 2) {
+                    val = parts[0] + '.' + parts.slice(1).join('');
+                }
+                this.value = val;
+            });
+        });
+
+        // Format price and stock inputs with commas only on blur, only if valid number
+        document.querySelectorAll('#addProductForm input[name="price"], #addProductForm input[name="stock"]').forEach(function(input) {
+            input.addEventListener('blur', function() {
+                let value = this.value.replace(/,/g, '');
+                if (!value || isNaN(value.replace(/\./g, ''))) return; // Don't format if not a number
+                if (this.name === 'price') {
+                    let parts = value.split('.');
+                    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    this.value = parts.join('.');
+                } else {
+                    this.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                }
+            });
+        });
+        // Remove commas before submit
+        document.getElementById('addProductForm').addEventListener('submit', function(e) {
+            ['price', 'stock'].forEach(function(name) {
+                var input = document.querySelector('#addProductForm input[name="' + name + '"]');
+                if (input) input.value = input.value.replace(/,/g, '');
+            });
+        });
+
+        // Edit product modal logic
+        document.querySelectorAll('.edit-product-link').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('edit_id').value = this.dataset.id;
+                document.getElementById('edit_product').value = this.dataset.product;
+                // Format stock and price with commas
+                function addCommas(n) {
+                    n = n.toString().replace(/,/g, '');
+                    if (!n) return '';
+                    var parts = n.split('.');
+                    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    return parts.join('.');
+                }
+                document.getElementById('edit_stock').value = addCommas(this.dataset.stock);
+                document.getElementById('edit_price').value = addCommas(this.dataset.price);
+                document.getElementById('edit_product_code').value = this.dataset.product_code;
+                // Fetch base64 image for preview
+                const productId = this.dataset.id;
+                fetch(`/product/image_base64/${productId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const imagePreview = document.getElementById('edit_image_preview');
+                        if (data.base64) {
+                            imagePreview.src = data.base64;
+                            imagePreview.style.display = 'block';
+                        } else {
+                            imagePreview.src = '#';
+                            imagePreview.style.display = 'none';
+                        }
+                    });
+                document.getElementById('editProductModal').style.display = 'flex';
+            });
+        });
+        function closeEditModal() {
+            document.getElementById('editProductModal').style.display = 'none';
+        }
+        // Optional: Close modal when clicking outside the form
+        document.getElementById('editProductModal').onclick = function(e) {
+            if (e.target === this) closeEditModal();
+        };
+
+        // Only allow numbers for stock, and numbers/decimal for price (edit modal)
+        document.querySelectorAll('#editProductForm input[name="edit_stock"]').forEach(function(input) {
+            input.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9,]/g, '');
+            });
+        });
+        document.querySelectorAll('#editProductForm input[name="edit_price"]').forEach(function(input) {
+            input.addEventListener('input', function() {
+                let val = this.value.replace(/[^0-9.,]/g, '');
+                let parts = val.split('.');
+                if (parts.length > 2) {
+                    val = parts[0] + '.' + parts.slice(1).join('');
+                }
+                this.value = val;
+            });
+        });
+        // Format price and stock inputs with commas only on blur, only if valid number (edit modal)
+        document.querySelectorAll('#editProductForm input[name="edit_price"], #editProductForm input[name="edit_stock"]').forEach(function(input) {
+            input.addEventListener('blur', function() {
+                let value = this.value.replace(/,/g, '');
+                if (!value || isNaN(value.replace(/\./g, ''))) return;
+                if (this.name === 'edit_price') {
+                    let parts = value.split('.');
+                    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    this.value = parts.join('.');
+                } else {
+                    this.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                }
+            });
+        });
+        // Remove commas before submit (edit modal)
+        document.getElementById('editProductForm').addEventListener('submit', function(e) {
+            ['edit_price', 'edit_stock'].forEach(function(name) {
+                var input = document.querySelector('#editProductForm input[name="' + name + '"]');
+                if (input) input.value = input.value.replace(/,/g, '');
+            });
+        });
+
+        // If edit_error_message, show the edit modal on page load
+        {% if edit_error_message %}
+        document.getElementById('editProductModal').style.display = 'flex';
+        {% endif %}
+
+        // Delete product function
+        function deleteProduct() {
+            if (confirm('Are you sure you want to delete this product?')) {
+                const editId = document.getElementById('edit_id').value;
+                const form = document.getElementById('editProductForm');
+                const deleteInput = document.createElement('input');
+                deleteInput.type = 'hidden';
+                deleteInput.name = 'delete_product';
+                deleteInput.value = '1';
+                form.appendChild(deleteInput);
+                form.submit();
+            }
+        }
+
+        // Image preview for add product
+        document.getElementById('add_image').addEventListener('change', function(e) {
+            const [file] = this.files;
+            const preview = document.getElementById('add_image_preview');
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'block';
+            } else {
+                preview.src = '#';
+                preview.style.display = 'none';
+            }
+        });
+
+        // Image preview for edit product
+        document.getElementById('edit_image').addEventListener('change', function(e) {
+            const [file] = this.files;
+            const preview = document.getElementById('edit_image_preview');
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'block';
+            } else {
+                preview.src = '#';
+                preview.style.display = 'none';
+            }
+        });
+
+        // Product image icon hover popup
+        document.querySelectorAll('.product-image-icon').forEach(function(icon) {
+            const productId = icon.dataset.id;
+            const popup = document.getElementById('product-image-popup-container');
+            let timeout;
+            icon.addEventListener('mouseenter', function(e) {
+                fetch(`/product/image_base64/${productId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const img = popup.querySelector('img');
+                        if (data.base64) {
+                            img.src = data.base64;
+                            img.style.display = 'block';
+                        } else {
+                            img.src = '#';
+                            img.style.display = 'none';
+                        }
+                        // Position popup at left 42% and top 2%
+                        popup.style.left = '42%';
+                        popup.style.top = '2%';
+                        popup.style.display = 'block';
+                    });
+            });
+            icon.addEventListener('mouseleave', function() {
+                timeout = setTimeout(function() {
+                    popup.style.display = 'none';
+                }, 200);
+            });
+            popup.addEventListener('mouseenter', function() {
+                clearTimeout(timeout);
+                popup.style.display = 'block';
+            });
+            popup.addEventListener('mouseleave', function() {
+                popup.style.display = 'none';
+            });
+        });
+    </script>
+{% endblock %} 

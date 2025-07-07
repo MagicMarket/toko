@@ -1,0 +1,126 @@
+{% load static %}
+<!DOCTYPE html>
+<script>
+(function() {
+    var theme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    window.__theme = theme;
+    document.documentElement.style.visibility = 'hidden';
+})();
+</script>
+<html style="visibility:hidden;">
+<head>
+    <title>Global App Landing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <script>
+        function toggleSubmenu(id, toggleBtn) {
+            var submenu = document.getElementById(id);
+            if (submenu.style.display === 'block') {
+                submenu.style.display = 'none';
+                toggleBtn.classList.remove('open');
+            } else {
+                submenu.style.display = 'block';
+                toggleBtn.classList.add('open');
+            }
+        }
+        function toggleMenu() {
+            var menu = document.getElementById('side-menu');
+            if (menu.classList.contains('open')) {
+                menu.classList.remove('open');
+            } else {
+                menu.classList.add('open');
+            }
+        }
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            document.getElementById('theme-slider').checked = (theme === 'dark');
+        }
+        window.onload = function() {
+            var theme = localStorage.getItem('theme') || 'light';
+            setTheme(theme);
+        };
+    </script>
+</head>
+<body>
+    <button class="menu-toggle-btn" onclick="toggleMenu()"><i class="fa fa-bars"></i> Menu</button>
+    <div class="side-menu" id="side-menu">
+        {% block theme_toggle %}
+        <div class="theme-toggle">
+            <div class="theme-switch">
+                <i class="fa fa-sun"></i>
+                <label class="switch">
+                    <input type="checkbox" id="theme-slider" onchange="setTheme(this.checked ? 'dark' : 'light')">
+                    <span class="slider"></span>
+                </label>
+                <i class="fa fa-moon"></i>
+            </div>
+        </div>
+        {% endblock %}
+        <h3>Menu</h3>
+        <ul>
+            {% for item in side_menu %}
+                {% if not item.parent %}
+                    {% with has_children=False %}
+                        {% for child in side_menu %}
+                            {% if child.parent_id == item.id %}
+                                {% with has_children=True %}{% endwith %}
+                            {% endif %}
+                        {% endfor %}
+                        <li class="{% if has_children %}has-children{% endif %}">
+                            {% if has_children %}
+                                <span class="toggle{% if request.path == item.url %} selected{% endif %}" onclick="toggleSubmenu('submenu-{{ item.id }}', this)">
+                                    {% if item.icon %}
+                                        <i class="fa fa-{{ item.icon }}"></i>
+                                    {% endif %}
+                                    {{ item.name }}
+                                    <i class="fa fa-chevron-down"></i>
+                                </span>
+                                <ul class="submenu" id="submenu-{{ item.id }}">
+                                    {% for child in side_menu %}
+                                        {% if child.parent_id == item.id %}
+                                            <li>
+                                                <a href="{{ child.url }}"{% if request.path == child.url %} class="selected"{% endif %}>
+                                                    {% if child.icon %}
+                                                        <i class="fa fa-{{ child.icon }}"></i>
+                                                    {% endif %}
+                                                    {{ child.name }}
+                                                </a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <a href="{{ item.url }}"{% if request.path == item.url %} class="selected"{% endif %}>
+                                    {% if item.icon %}
+                                        <i class="fa fa-{{ item.icon }}"></i>
+                                    {% endif %}
+                                    {{ item.name }}
+                                </a>
+                            {% endif %}
+                        </li>
+                    {% endwith %}
+                {% endif %}
+            {% empty %}
+                <li>No menu items available.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="main-content" id = "main-content">
+        {% block main_content %}
+        <h1>Welcome to the Global App Landing Page</h1>
+        {% endblock %}
+    </div>
+    <script>
+        // Show the html after theme is set
+        document.documentElement.style.visibility = 'visible';
+        // Set the slider state immediately
+        document.getElementById('theme-slider').checked = (window.__theme === 'dark');
+    </script>
+</body>
+</html> 
